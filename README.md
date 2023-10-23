@@ -1,0 +1,1 @@
+Тестовое на позицию junior go-developer в "Effective Mobile"
