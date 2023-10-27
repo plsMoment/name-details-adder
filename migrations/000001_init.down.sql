@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS "names";
+DROP TYPE IF EXISTS "genders";

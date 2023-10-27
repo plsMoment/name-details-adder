@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  name-details-adder:
+    build: ./
+    command: ./name-details-adder
+    ports:
+      - "${DOCKER_HOST_ADDRESS}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:14-alpine
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./.database/postgres/data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_DB={DB_NAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
