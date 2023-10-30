@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,30 +20,41 @@ type UserGenerated struct {
 	} `json:"results"`
 }
 
-func GenerateUser() (FullName, error) {
+func GenerateUser() (fn FullName, e error) {
 	scope := "utils.random_user.GenerateUser"
 	resp, err := http.Get("https://randomuser.me/api/?inc=name") //https://api.randomdatatools.ru/?params=LastName,FirstName
 	if err != nil {
-		return FullName{}, fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			e = errors.Join(e, fmt.Errorf("%s: %w", scope, err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return FullName{}, fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		e = fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return FullName{}, fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
 
 	res := UserGenerated{}
 	if err = json.Unmarshal(body, &res); err != nil {
-		return FullName{}, fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
 
 	if len(res.Results) == 0 {
-		return FullName{}, fmt.Errorf("%s: response with user name is empty", scope)
+		e = fmt.Errorf("%s: response with user name is empty", scope)
+		return
 	}
-	return res.Results[0].Fn, nil
+
+	fn = res.Results[0].Fn
+	return
 }

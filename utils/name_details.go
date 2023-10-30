@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -69,33 +70,44 @@ type Genderized struct {
 	Probability float64 `json:"probability"`
 }
 
-func genderize(name string) (string, error) {
+func genderize(name string) (gender string, e error) {
 	scope := "utils.name_details.genderize"
 
 	resp, err := http.Get(fmt.Sprintf("https://api.genderize.io/?name=%s", name))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			e = errors.Join(e, fmt.Errorf("%s: %w", scope, err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		e = fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
 
 	res := Genderized{}
-
 	if err = json.Unmarshal(body, &res); err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
+
 	if res.Gender == "" {
-		return "", fmt.Errorf("%s: name %s haven't gender", scope, name)
+		e = fmt.Errorf("%s: name %s haven't gender", scope, name)
+		return
 	}
-	return res.Gender, nil
+
+	gender = res.Gender
+	return
 }
 
 type Nationalized struct {
@@ -107,29 +119,41 @@ type Nationalized struct {
 	} `json:"country"`
 }
 
-func nationalize(name string) (string, error) {
+func nationalize(name string) (country string, e error) {
 	scope := "utils.name_details.nationalize"
 	resp, err := http.Get(fmt.Sprintf("https://api.nationalize.io/?name=%s", name))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			e = errors.Join(e, fmt.Errorf("%s: %w", scope, err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		e = fmt.Errorf("%s: StatusCode is not %d", scope, http.StatusOK)
+		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
 
 	res := Nationalized{}
 	if err = json.Unmarshal(body, &res); err != nil {
-		return "", fmt.Errorf("%s: %w", scope, err)
+		e = fmt.Errorf("%s: %w", scope, err)
+		return
 	}
+
 	if len(res.Country) == 0 {
-		return "", fmt.Errorf("%s: name %s haven't nationality", scope, name)
+		e = fmt.Errorf("%s: name %s haven't nationality", scope, name)
+		return
 	}
-	return res.Country[0].CountryID, nil
+
+	country = res.Country[0].CountryID
+	return
 }

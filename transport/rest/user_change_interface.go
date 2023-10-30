@@ -10,5 +10,5 @@ type UserChanger interface {
 	CreateUser() (uuid.UUID, error)
 	DeleteUser(userId uuid.UUID) error
 	UpdateUser(uuid.UUID, *db.UserPointers) error
-	GetUsers(m map[string]string) ([]*db.User, error)
+	GetUsers(m map[string]interface{}) ([]*db.User, error)
 }

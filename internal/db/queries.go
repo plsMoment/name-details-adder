@@ -3,12 +3,12 @@ package db
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"name-details-adder/utils"
 	"reflect"
-	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type User struct {
@@ -28,6 +28,19 @@ type UserPointers struct {
 	Age         *int              `json:"age,omitempty" sql:"age"`
 	Gender      *string           `json:"gender,omitempty" sql:"gender"`
 	Nationality *string           `json:"nationality,omitempty" sql:"nationality"`
+}
+
+// Use ONLY for READING!!!
+// Safe for concurrent read, allocate in init()
+
+var Fields = map[string]bool{
+	"id":          true,
+	"name":        true,
+	"surname":     true,
+	"patronymic":  true,
+	"age":         true,
+	"gender":      true,
+	"nationality": true,
 }
 
 func (s *Storage) CreateUser() (uuid.UUID, error) {
@@ -71,23 +84,6 @@ func (s *Storage) DeleteUser(userId uuid.UUID) error {
 	}
 
 	return nil
-}
-
-func (s *Storage) GetAllUsers() ([]*User, error) {
-	scope := "internal.db.queries.GetAllUsers"
-
-	rows, err := s.connPool.Query(context.TODO(), "SELECT * FROM users")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", scope, err)
-	}
-	defer rows.Close()
-
-	users, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[User])
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", scope, err)
-	}
-
-	return users, nil
 }
 
 func (s *Storage) UpdateUser(userId uuid.UUID, data *UserPointers) error {
@@ -136,7 +132,6 @@ func (s *Storage) UpdateUser(userId uuid.UUID, data *UserPointers) error {
 	queryStr := setStr + " WHERE id = $1" // string example: "UPDATE users SET name=$2, age=$3 WHERE id = $1"
 
 	// Query to database
-	fmt.Println(values)
 	_, err := s.connPool.Exec(context.TODO(), queryStr, values...)
 	if err != nil {
 		return fmt.Errorf("%s: %w", scope, err)
@@ -145,27 +140,23 @@ func (s *Storage) UpdateUser(userId uuid.UUID, data *UserPointers) error {
 	return nil
 }
 
-func (s *Storage) GetUsers(m map[string]string) ([]*User, error) {
+func (s *Storage) GetUsers(dbParams map[string]interface{}) ([]*User, error) {
 	scope := "internal.db.queries.GetUsers"
 
 	var queryStr string
-	values := make([]interface{}, 0, len(m))
-	if len(m) != 0 {
+	values := make([]interface{}, 0, len(dbParams))
+	if len(dbParams) != 0 {
 		strBuilder := strings.Builder{}
 		strBuilder.WriteString("SELECT * FROM users WHERE ")
 		j := 1
-		for k, v := range m {
-			strBuilder.WriteString(fmt.Sprintf("%s = $%d and ", k, j)) // example: SELECT * FROM users WHERE id = $1 and
-			if k == "age" {
-				val, err := strconv.Atoi(v)
-				if err != nil {
-					return nil, fmt.Errorf("%s: %w", scope, err)
-				}
-				values = append(values, val)
+		for k, v := range dbParams {
+			if k == "patronymic" && v == nil {
+				strBuilder.WriteString(fmt.Sprintf("%s IS NULL and ", k))
 			} else {
+				strBuilder.WriteString(fmt.Sprintf("%s = $%d and ", k, j)) // example: SELECT * FROM users WHERE id = $1 and
+				j++
 				values = append(values, v)
 			}
-			j++
 		}
 		queryStr = strBuilder.String()        // example: SELECT * FROM users WHERE id = $1 and age = $2 and
 		queryStr = queryStr[:len(queryStr)-5] // example: SELECT * FROM users WHERE id = $1 and age = $2
