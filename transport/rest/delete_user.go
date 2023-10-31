@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type DeleteResponse struct{}
-
 func DeleteUser(logger *slog.Logger, changer UserChanger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger := logger.With(
@@ -22,7 +20,6 @@ func DeleteUser(logger *slog.Logger, changer UserChanger) http.HandlerFunc {
 		if err != nil {
 			logger.Error("parsing URL parameter userId failed", err)
 			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, DeleteResponse{})
 			return
 		}
 		logger.Info("Url parameter parsed", slog.Any("user_id", userId))
@@ -31,12 +28,10 @@ func DeleteUser(logger *slog.Logger, changer UserChanger) http.HandlerFunc {
 		if err != nil {
 			logger.Error("deleting Users failed", err)
 			render.Status(r, http.StatusInternalServerError)
-			render.JSON(w, r, DeleteResponse{})
 			return
 		}
 
 		logger.Info("User deleted")
 		render.Status(r, http.StatusNoContent)
-		render.JSON(w, r, DeleteResponse{})
 	}
 }

@@ -140,7 +140,7 @@ func (s *Storage) UpdateUser(userId uuid.UUID, data *UserPointers) error {
 	return nil
 }
 
-func (s *Storage) GetUsers(dbParams map[string]interface{}) ([]*User, error) {
+func (s *Storage) GetUsers(dbParams map[string]interface{}, pageId int, pageSize int) ([]*User, error) {
 	scope := "internal.db.queries.GetUsers"
 
 	var queryStr string
@@ -159,10 +159,12 @@ func (s *Storage) GetUsers(dbParams map[string]interface{}) ([]*User, error) {
 			}
 		}
 		queryStr = strBuilder.String()        // example: SELECT * FROM users WHERE id = $1 and age = $2 and
-		queryStr = queryStr[:len(queryStr)-5] // example: SELECT * FROM users WHERE id = $1 and age = $2
+		queryStr = queryStr[:len(queryStr)-4] // example: SELECT * FROM users WHERE id = $1 and age = $2
+		queryStr += fmt.Sprintf("ORDER BY id LIMIT $%d OFFSET $%d", j, j+1)
 	} else {
-		queryStr = "SELECT * FROM users"
+		queryStr = "SELECT * FROM users ORDER BY id LIMIT $1 OFFSET $2"
 	}
+	values = append(values, pageSize, pageSize*(pageId-1))
 
 	rows, err := s.connPool.Query(context.TODO(), queryStr, values...)
 	if err != nil {
